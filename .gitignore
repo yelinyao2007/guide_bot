@@ -1,0 +1,29 @@
+.venv/
+__pycache__/
+.pytest_cache/
+*.egg-info/
+*.db
+.env
+assets/menagerie/
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Python virtual environments
+.pdf-venv/
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# IDE
+.idea/
+.vscode/
+
+# Node.js
+node_modules/
+
+# Secrets
+.env
+.env.*
+!.env.example
