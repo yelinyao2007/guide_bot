@@ -59,8 +59,8 @@ timeout 15s ros2 topic echo /bms_state --no-daemon --once
 不会写 ROS 也能动狗（CLI 一把梭，**在狗上执行**）：
 
 ```bash
-# 说话
-ros2 service call /set_speak aorta_msgs/srv/SetSpeak "{mode: 1, human_language_text: '你好，我是导盲犬', target_state: 1}"
+# 说话（SetSpeak 在 function_msgs，已核对 vbot_ros2_msgs 源码）
+ros2 service call /set_speak function_msgs/srv/SetSpeak "{mode: 1, human_language_text: '你好，我是导盲犬', target_state: 1}"
 # 伴随模式 + 限速（先离地试！）
 ros2 service call /locomotion/control_following function_msgs/srv/ControlFollowing "{target_state: 1, mode: 8, req_id: 'acc1', pre_check: true}"
 ros2 service call /locomotion/set_follow_speed function_msgs/srv/SetFollowSpeed "{following_speed: 0.5, source: 'guide'}"
@@ -109,7 +109,21 @@ cd <本 skill 目录>/scripts && bash run_case.sh
 - [ ] SetSpeak 服务名/消息包现场确认（`ros2 service list -t` 按类型后缀找）
 - [ ] 板载 TTS 延迟与音色实测记录（M2 语音环验收数据）
 
-## 7. 延伸
+## 7. 仿真环境（不上真机也能练案例）
+
+仓库 `simulation/` 目录 = 空位案例的 MuJoCo 仿真 + 假感知服务 + 网页编排：
+
+```bash
+cd simulation && bash fetch_assets.sh        # 拉狗网格+URDF，生成带执行器 MJCF（56MB，不入 git）
+source <ROS 环境> && source <vbot_ros2_msgs 的 install/setup.bash>
+python3 run_sim.py [--viewer]                # 物理+假 SemanticNavQuery/SetSpeak+编排HTTP :8001
+```
+
+- **同构关键**：假服务与真狗**同类型同字段**（function_msgs），`empty_seat_finder.py` 零改动通吃仿真/真机
+- 网页编排：guide_bot 看板新增「空位仿真编排」面板（人坐下/起身/走开/回来、跑案例、实时播报流），地址 `http://<主机>:8001` 由面板自动探测
+- 触发策略/降级/话术单测都在仿真里做（S3 失败注入：改 sim_nodes 的 success 概率）；**步态不仿**（狗站立观察，移动用运动学，规矩见 docs/controllers.md）
+
+## 8. 延伸
 
 - 导盲整体方案（架构/里程碑/风险）：仓库根 `导盲落地方案.md`
 - 环境搭建（Mac/UTM、Windows/WSL）：仓库根两份《小狗项目准备工作》
