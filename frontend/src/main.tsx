@@ -10,6 +10,40 @@ const SIM_URL = `http://${window.location.hostname}:8001`
 interface SimState { person_state: string; seat_occupied: boolean; speaks: { t: number; text: string }[]; sim_time: number; dog_loaded: boolean; case_running: boolean }
 const personLabels: Record<string, string> = { sit: '坐着（座位占用）', stand: '站着（座位空）', away: '已离开（座位空）' }
 
+interface VbotCheck { name: string; ok: boolean; detail: string }
+interface VbotCfg { dog_ip: string; ssh_user: string; zenoh_endpoint: string; ros_domain_id: number; map_name: string; notes: string }
+
+function VbotPanel() {
+  const [cfg, setCfg] = useState<VbotCfg | null>(null)
+  const [checks, setChecks] = useState<VbotCheck[] | null>(null)
+  const [found, setFound] = useState<string[] | null>(null)
+  const [busy, setBusy] = useState('')
+  useEffect(() => { fetch('/api/vbot/config').then((r) => r.json()).then(setCfg).catch(() => setCfg(null)) }, [])
+  const save = async () => { setBusy('save'); try { setCfg(await (await fetch('/api/vbot/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cfg) })).json()); setChecks(null) } finally { setBusy('') } }
+  const test = async () => { setBusy('test'); try { setChecks(await (await fetch('/api/vbot/test', { method: 'POST' })).json()) } catch (e) { setChecks([{ name: '自检请求失败', ok: false, detail: String(e) }]) } finally { setBusy('') } }
+  const scan = async () => { setBusy('scan'); try { setFound(await (await fetch('/api/vbot/scan', { method: 'POST' })).json()) } catch (e) { setFound([]) } finally { setBusy('') } }
+  const set = (key: keyof VbotCfg) => (e: React.ChangeEvent<HTMLInputElement>) => setCfg(cfg ? { ...cfg, [key]: key === 'ros_domain_id' ? Number(e.target.value) : e.target.value } : cfg)
+  return <aside className="panel vbot">
+    <h2>真机连接配置</h2>
+    {!cfg && <p className="muted">配置加载中…</p>}
+    {cfg && <>
+      <label>狗 IP <input value={cfg.dog_ip} onChange={set('dog_ip')} /></label>
+      <label>SSH 用户 <input value={cfg.ssh_user} onChange={set('ssh_user')} /></label>
+      <label>Zenoh 端点 <input value={cfg.zenoh_endpoint} onChange={set('zenoh_endpoint')} /></label>
+      <label>ROS_DOMAIN_ID <input value={cfg.ros_domain_id} onChange={set('ros_domain_id')} /></label>
+      <label>场地地图名 <input value={cfg.map_name} onChange={set('map_name')} placeholder="guide_site_1f" /></label>
+      <div className="shortcuts">
+        <button onClick={save} disabled={!!busy}>{busy === 'save' ? '保存中…' : '保存配置'}</button>
+        <button onClick={test} disabled={!!busy}>{busy === 'test' ? '自检中…' : '连接自检'}</button>
+        <button onClick={scan} disabled={!!busy}>{busy === 'scan' ? '扫描中(约10s)…' : '扫描找狗(换网后用)'}</button>
+      </div>
+      {found && <p role="status">{found.length ? '发现候选狗 IP（点击填入）：' : '未发现狗：检查网线/桥接/WiFi 是否与狗同网段'}{found.map((ip) => <button key={ip} onClick={() => setCfg(cfg ? { ...cfg, dog_ip: ip } : cfg)}>{ip}</button>)}</p>}
+      <p className="notice">自检全部只读，不碰控制接口。密钥免密一次性配置：<code>ssh-copy-id {cfg.ssh_user}@{cfg.dog_ip}</code></p>
+      {checks && <div className="timeline"><h2>自检结果</h2>{checks.map((c) => <div className="event" key={c.name}><span>{c.ok ? '✅' : '❌'}</span><b>{c.name}</b><span>{c.detail}</span></div>)}</div>}
+    </>}
+  </aside>
+}
+
 function SimPanel() {
   const [sim, setSim] = useState<SimState | null>(null)
   useEffect(() => {
@@ -83,6 +117,7 @@ export function App() {
       <section className="panel robot"><h2>机器人状态</h2><div className={`orb ${status?.stopped ? 'stopped' : 'active'}`}><div className="dog">🐕</div></div><strong>{status?.stopped ? '已停止' : '执行中'}</strong><p>{status?.model_label || '连接中…'}</p><dl><div><dt>场景</dt><dd>{status?.scene || '—'}</dd></div><div><dt>位置</dt><dd>{status?.position?.map((n) => n.toFixed(2)).join(', ') || '—'}</dd></div><div><dt>步态</dt><dd>{status?.locomotion ? '可用' : '尚不支持行走'}</dd></div></dl></section>
       <aside className="panel tasks"><h2>任务队列</h2>{tasks.length === 0 && <p className="muted">暂无任务</p>}{tasks.slice().reverse().map((task) => <article className="task" key={task.id}><div><b>{task.intent.destination || task.intent.intent}</b><small>{time(task.updated_at)}</small></div><span className={`status ${task.status}`}>{labels[task.status] || task.status}</span>{task.status === 'awaiting_confirmation' && <button className="confirm" onClick={() => run(() => api.confirm(task.id))}>确认联系家人</button>}{['queued', 'running'].includes(task.status) && <button className="cancel" onClick={() => run(() => api.cancel(task.id))}>取消</button>}{task.result?.delivery_status === 'simulated' && <small className="receipt">模拟通知已记录，不会实际发送</small>}{task.error_code && <small className="failure">{task.error_code}</small>}</article>)}</aside>
       <SimPanel />
+      <VbotPanel />
     </section>
     <section className="bottom"><button className="stop" onClick={() => run(api.stop)}>紧急停止</button><select aria-label="恢复场景" value={scene} onChange={(e) => setScene(e.target.value)}><option value="living_room">客厅陪伴</option><option value="help">模拟求助</option><option value="obstacle">近障停止</option></select><button onClick={() => run(() => api.recover(scene))}>恢复模拟</button>{status?.backend === 'mock' && <button onClick={() => run(api.reset)}>重置演示</button>}<div className="timeline"><h2>事件时间线</h2>{events.filter((event) => event.type !== 'robot.state').slice(-8).reverse().map((event) => <div className="event" key={event.seq}><span>#{event.seq}</span><b>{event.type}</b>{typeof event.payload.code === 'string' && <span>{event.payload.code}</span>}<time>{time(event.timestamp)}</time></div>)}</div></section>
   </main>

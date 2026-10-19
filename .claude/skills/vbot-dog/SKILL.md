@@ -109,6 +109,25 @@ cd <本 skill 目录>/scripts && bash run_case.sh
 - [ ] SetSpeak 服务名/消息包现场确认（`ros2 service list -t` 按类型后缀找）
 - [ ] 板载 TTS 延迟与音色实测记录（M2 语音环验收数据）
 
+## 6.5 彩蛋：海龟页指挥真狗（教学/空旷场地调试用）
+
+turtlesim 的 teleop 和狗都说 `geometry_msgs/Twist`，所以能直接 remap：
+
+```bash
+# 方向键开真狗（在狗上或 Zenoh 跨机执行）；⚠️ /vel_cmd 死区 0.3、无避障保证
+ros2 run turtlesim turtle_teleop_key --ros-args -r /turtle1/cmd_vel:=/vel_cmd
+```
+
+反向玩法——**海龟当狗的替身.avatar**：订阅 `/odometry` 转发 `/turtle1/pose`(x/y/theta)，
+海龟窗口实时镜像狗的位置朝向，投影讲解/远程观察好用：
+
+```python
+# turtle_avatar.py（rclpy 十行桥）：/odometry -> /turtle1/pose
+# pose.x=odom.x, pose.y=odom.y, pose.theta=yaw(odom.quaternion)
+```
+
+纪律：remap 控狗只许**空旷场地+离地/有人扶+急停在手**；正式导盲永远走 ControlFollowing，不走 vel_cmd。
+
 ## 7. 仿真环境（不上真机也能练案例）
 
 仓库 `simulation/` 目录 = 空位案例的 MuJoCo 仿真 + 假感知服务 + 网页编排：

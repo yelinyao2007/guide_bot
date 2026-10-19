@@ -104,6 +104,28 @@ def create_app(robot=None, database_url=None, timeout=None, resolver=None):
         app.state.service.store.emit("demo.reset", {})
         return state
 
+    @app.get("/api/vbot/config")
+    async def vbot_config_get():
+        from . import vbot_config
+        return vbot_config.load()
+
+    @app.post("/api/vbot/config")
+    async def vbot_config_set(body: dict):
+        from . import vbot_config
+        return vbot_config.save(body)
+
+    @app.post("/api/vbot/test")
+    async def vbot_test():
+        import asyncio as _aio
+        from . import vbot_config
+        return await _aio.to_thread(vbot_config.run_checks, vbot_config.load())
+
+    @app.post("/api/vbot/scan")
+    async def vbot_scan():
+        import asyncio as _aio
+        from . import vbot_config
+        return await _aio.to_thread(vbot_config.scan_for_dog, vbot_config.load())
+
     @app.get("/api/events")
     async def events(after: int = Query(0, ge=0), limit: int = Query(100, ge=1, le=500)):
         return app.state.service.store.events(after, limit)
