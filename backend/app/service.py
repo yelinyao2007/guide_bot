@@ -116,7 +116,9 @@ class Service:
             result = {"delivery_status": "simulated", "contact_alias": "家人", "preview_id": task.id}
             self.store.emit("notification.simulated", result)
             return result
-        action = SafeRobotAction(kind="accompany_simulated" if task.intent.intent == "accompany" else "move_to_known_zone",
+        kinds = {"accompany": "accompany_simulated", "follow_me": "accompany_simulated",
+                 "wake": "wake_reply", "shake_hands": "shake_hands", "start_mapping": "start_mapping"}
+        action = SafeRobotAction(kind=kinds.get(task.intent.intent, "move_to_known_zone"),
                                  destination=task.intent.destination)
         return (await self.robot.execute(action, task.id)).model_dump()
 

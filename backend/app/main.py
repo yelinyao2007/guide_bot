@@ -36,8 +36,11 @@ def create_app(robot=None, database_url=None, timeout=None, resolver=None):
                     scene=os.getenv("SIM_SCENARIO", "living_room"), viewer=os.getenv("MUJOCO_VIEWER", "0") == "1",
                     start_timeout=float(os.getenv("SIM_START_TIMEOUT_SECONDS", "15")),
                     heartbeat_timeout=float(os.getenv("SIM_HEARTBEAT_TIMEOUT_SECONDS", "2")))
+            elif mode == "simvbot":
+                from .robot.simvbot_adapter import SimVbotAdapter
+                selected = SimVbotAdapter()
             else:
-                raise RuntimeError("Only mock and mujoco are enabled; Vbot hardware is unavailable")
+                raise RuntimeError("Only mock, mujoco and simvbot are enabled; Vbot hardware is unavailable")
         store = Store(database_url or os.getenv("DATABASE_URL", "sqlite:///./guardian.db"))
         kwargs = {"resolver": resolver} if resolver else {}
         service = Service(selected, store, timeout if timeout is not None else float(os.getenv("TASK_TIMEOUT_SECONDS", "30")), **kwargs)

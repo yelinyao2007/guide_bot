@@ -87,6 +87,8 @@ class MujocoRobotAdapter(RobotAdapter):
             raise RobotError("STOP_LATCHED")
         if action.kind == "move_to_known_zone":
             raise RobotError("GAIT_UNAVAILABLE", "未验证步态；仅支持原地陪伴")
+        if action.kind == "start_mapping":
+            raise RobotError("GAIT_UNAVAILABLE", "建图需行走；Go2 替身无验证步态")
         if self.active:
             raise RobotError("ROBOT_BUSY")
         self.active = task_id
