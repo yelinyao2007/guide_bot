@@ -1,0 +1,13 @@
+{
+  "dog_ip": "192.168.126.2",
+  "ssh_user": "vbot",
+  "zenoh_endpoint": "tcp/192.168.1.2:7447",
+  "ros_domain_id": 178,
+  "map_name": "",
+  "notes": "",
+  "owner_name": "",
+  "dify_enabled": true,
+  "dify_url": "http://127.0.0.1/v1/workflows/run",
+  "dify_api_key": "",
+  "dify_timeout": 3.0
+}

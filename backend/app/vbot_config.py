@@ -12,6 +12,11 @@ DEFAULTS = {
     "ros_domain_id": 178,
     "map_name": "",
     "notes": "",
+    "owner_name": "流年",
+    "dify_enabled": True,
+    "dify_url": "http://127.0.0.1/v1/workflows/run",
+    "dify_api_key": "",
+    "dify_timeout": 3.0,
 }
 CONFIG_PATH = Path(os.getenv("VBOT_CONFIG", str(Path(__file__).resolve().parents[2] / "vbot_config.json")))
 
@@ -119,3 +124,26 @@ def run_checks(cfg):
     ok_ver, detail_ver = ssh_run(cfg, "cat /etc/version 2>/dev/null | head -1")
     checks.append({"name": "系统镜像版本(≠应用版本,记录用)", "ok": ok_ver, "detail": detail_ver})
     return checks
+
+
+def mask_key(key):
+    """API key 打码：看板无鉴权，GET 不回明文。"""
+    key = str(key or "")
+    if not key:
+        return ""
+    return key[:4] + "****" + key[-2:] if len(key) > 8 else "****"
+
+
+def public(cfg):
+    out = dict(cfg)
+    out["dify_api_key"] = mask_key(cfg.get("dify_api_key"))
+    return out
+
+
+def merge_incoming(stored, incoming):
+    """收到的 key 是打码值或空 → 保留已存 key；否则用新值覆盖。"""
+    inc = dict(incoming)
+    key = str(inc.get("dify_api_key", ""))
+    if not key or "****" in key:
+        inc["dify_api_key"] = stored.get("dify_api_key", "")
+    return inc

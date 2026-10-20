@@ -4,48 +4,103 @@ import signal
 import time
 import pytest
 from backend.app.robot.base import RobotError, SafeRobotAction
-from backend.app.robot.mock import MockRobot
 from backend.app.robot.mujoco_adapter import DEFAULT_MODEL, MujocoRobotAdapter
-from backend.app.robot.vbot_stub import VbotAdapter
+from backend.app.robot.vbot_adapter import VbotEduAdapter
+from conftest import CFG, scripted_dog
 
-ACCOMPANY = SafeRobotAction(kind="accompany_simulated")
+ACCOMPANY = SafeRobotAction(kind="accompany")
+MOVE = SafeRobotAction(kind="move_to_known_zone", destination="living_room")
 
 
-async def test_mock_stop_is_fast_and_latched():
-    robot = MockRobot(duration=10)
-    task = asyncio.create_task(robot.execute(ACCOMPANY, "one"))
-    await asyncio.sleep(.03)
-    start = time.monotonic()
+def make_robot(**kw):
+    runner, calls = scripted_dog(**kw)
+    robot = VbotEduAdapter(cfg=CFG, runner=runner, poll_interval=.05)
+    robot.idle_timeout = 1.
+    return robot, calls
+
+
+async def test_vbot_status_parse_and_route_discovery():
+    robot, calls = make_robot()
+    robot._discover()
+    robot._refresh()
+    st = robot.get_status()
+    assert st.available and st.error_code is None
+    assert st.backend == "vbot" and st.posture == "standing" and st.body_mode == "RL_TROT"
+    assert st.battery_percent == 87.5 and st.current_action == "RL_TROT"
+    assert st.position == [0.1, 0.2, 0.3] and st.quaternion_wxyz == [1., 0., 0., 0.]
+    assert st.stopped and not st.locomotion
+    assert robot._route("lowlevel") == "/sm/action/lowlevel"
+    assert robot._route("nav") == "/navigate_to_target"
+    assert robot._route("speak") == "/set_speak"
+
+
+async def test_vbot_accompany_speed_and_stop_payloads():
+    robot, calls = make_robot()
+    robot._discover()
+    robot._refresh()
+    result = await robot.execute(ACCOMPANY, "task-abcdef12")
+    assert result.completed and "gb-task-abcd" in result.detail
+    joined = "\n".join(calls)
+    assert "mode: 8" in joined and "req_id: 'gb-task-abcd'" in joined  # ACCOMPANY
+    assert "following_speed: 0.5" in joined and "source: 'guide'" in joined  # 导盲限速写死
     await robot.stop()
-    with pytest.raises(RobotError, match="STOP_LATCHED"):
-        await task
-    assert time.monotonic() - start < .25
-    await robot.stop()
-    assert robot.get_status().stopped
-    await robot.recover()
-    robot.duration = .01
-    assert (await robot.execute(ACCOMPANY, "two")).completed
+    assert "mode: 3" in calls[-1] and "target_state: 1" in calls[-1]  # SAFE_STOP_SEQUENCE
 
 
-@pytest.mark.parametrize("scenario,code", [("obstacle", "OBSTACLE_BLOCKED"), ("disconnect", "ROBOT_DISCONNECTED")])
-async def test_mock_faults(scenario, code):
-    robot = MockRobot(scenario=scenario)
-    with pytest.raises(RobotError, match=code):
-        await robot.execute(ACCOMPANY, "one")
-    assert robot.get_status().stopped
+async def test_vbot_stand_uses_manual_not_fixed_stand():
+    robot, calls = make_robot()
+    robot._discover()
+    robot._refresh()
+    result = await robot.stand()
+    assert result.completed
+    joined = "\n".join(calls)
+    assert "function_msgs/srv/SetRunMode" in joined
+    assert "mode: 0" in joined  # MODE_MANUAL，文档禁止用 FIXED_STAND 顶替
+    assert "has_is_traction_user_param: true" in joined and "is_traction_user_param: false" in joined
 
 
-async def test_mock_timeout():
-    robot = MockRobot(scenario="timeout")
-    with pytest.raises(TimeoutError):
-        await asyncio.wait_for(robot.execute(ACCOMPANY, "one"), .05)
-    await robot.stop()
-    assert robot.get_status().stopped
+async def test_vbot_lie_down_uses_safe_sequence():
+    robot, calls = make_robot()
+    robot._discover()
+    robot._refresh()
+    await robot.lie_down()
+    assert "mode: 4" in calls[-2] or "mode: 4" in calls[-1]  # SAFE_LAYDOWN_SEQUENCE
 
 
-async def test_vbot_never_connects():
-    with pytest.raises(RobotError, match="HARDWARE_UNAVAILABLE"):
-        await VbotAdapter().execute(ACCOMPANY, "one")
+async def test_vbot_move_to_nav_payload():
+    robot, calls = make_robot()
+    robot._discover()
+    robot._refresh()
+    result = await robot.execute(MOVE, "nav-1")
+    assert result.completed
+    assert "target_name: 'living_room'" in "\n".join(calls)
+
+
+async def test_vbot_busy_gate():
+    robot, _ = make_robot(fault="busy")
+    robot._discover()
+    robot._refresh()
+    assert robot.get_status().locomotion
+    with pytest.raises(RobotError, match="ROBOT_BUSY"):
+        await robot.execute(ACCOMPANY, "t")
+
+
+async def test_vbot_disconnect_sets_error_and_rejects():
+    robot, _ = make_robot(fault="disconnect")
+    with pytest.raises(RobotError, match="ROBOT_DISCONNECTED"):
+        robot._refresh()
+    st = robot.get_status()
+    assert not st.available and st.error_code == "ROBOT_DISCONNECTED"
+    with pytest.raises(RobotError, match="ROBOT_DISCONNECTED"):
+        await robot.execute(ACCOMPANY, "t")
+
+
+async def test_vbot_no_terminal_observation_reports_unknown():
+    robot, _ = make_robot(fault="moving_late")
+    robot._discover()
+    robot._refresh()
+    with pytest.raises(RobotError, match="TASK_TIMEOUT"):
+        await robot.execute(MOVE, "t")
 
 
 @pytest.fixture
@@ -74,7 +129,7 @@ async def test_real_model_state_step_stop(physics):
     assert after.position != first.position  # gravity, not a static pose mock
     assert (await physics.execute(ACCOMPANY, "one")).completed
     with pytest.raises(RobotError, match="GAIT_UNAVAILABLE"):
-        await physics.execute(SafeRobotAction(kind="move_to_known_zone", destination="living_room"), "two")
+        await physics.execute(MOVE, "two")
     await physics.stop()
     await physics.stop()
     await asyncio.sleep(.1)

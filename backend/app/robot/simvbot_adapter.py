@@ -62,7 +62,7 @@ class SimVbotAdapter(RobotAdapter):
             self._post("/speak", {"text": "我在，请说指令。"})
         elif action.kind == "shake_hands":
             self._post("/speak", {"text": "握手！握握。"})
-        elif action.kind == "accompany_simulated":
+        elif action.kind == "accompany":
             self._post("/person/walk")
             self._post("/dog/follow/start")
         elif action.kind == "start_mapping":

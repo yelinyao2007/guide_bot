@@ -26,7 +26,7 @@ def main():
     joints = re.findall(r'<joint[^>]*name="([^"]+)"[^>]*type="hinge"', s) or \
         re.findall(r'<joint[^>]*name="([^"]+)"', s)
     actuators = "\n  <actuator>\n" + "".join(
-        f'    <position joint="{j}" kp="40" kv="4" ctrllimited="true" ctrlrange="-3.14 3.14"/>\n'
+        f'    <position joint="{j}" kp="150" kv="8" ctrllimited="true" ctrlrange="-3.14 3.14"/>\n'
         for j in joints) + "  </actuator>\n"
     s = s.replace("</mujoco>", actuators + "</mujoco>")
     open(out, "w").write(s)

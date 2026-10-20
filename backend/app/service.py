@@ -1,13 +1,14 @@
 import asyncio
+import inspect
 from contextlib import suppress
 from datetime import datetime, timezone
-from .agent import is_stop, resolve
+from .agent import dify_resolve, is_stop, resolve
 from .domain import Intent, Task, TERMINAL
 from .robot.base import RobotError, SafeRobotAction
 
 
 class Service:
-    def __init__(self, robot, store, timeout=30., resolver=resolve):
+    def __init__(self, robot, store, timeout=30., resolver=dify_resolve):
         self.robot, self.store, self.timeout, self.resolver = robot, store, timeout, resolver
         self.queue = asyncio.Queue()
         self.halted = False
@@ -48,7 +49,10 @@ class Service:
             task = self.confirm(pending[0].id)
             return {"intent": task.intent.model_dump(), "task": task.model_dump()}
         intent = self.resolver(text)
-        if intent.intent in ("unknown", "status"):
+        if inspect.isawaitable(intent):
+            intent = await intent
+        # find_seat/nearby_fun/record_field_save: 识别但暂不执行（P2 链路未实现），只透传显示
+        if intent.intent in ("unknown", "status", "passthrough", "find_seat", "nearby_fun", "record_field_save"):
             return {"intent": intent.model_dump(), "task": None, "robot": self.robot.get_status().model_dump()}
         if self.halted or self.recovering:
             raise RobotError("STOP_LATCHED")
@@ -111,12 +115,18 @@ class Service:
             self.recovering = False
 
     async def perform(self, task):
+        if task.intent.intent == "check_link":
+            import asyncio as _aio
+            from . import vbot_config
+            checks = await _aio.to_thread(vbot_config.run_checks, vbot_config.load())
+            passed = sum(1 for c in checks if c["ok"])
+            return {"checks": checks, "passed": passed, "total": len(checks)}
         if task.intent.intent == "request_help":
             # MockNotifier: persisted task result, no network or real delivery.
             result = {"delivery_status": "simulated", "contact_alias": "家人", "preview_id": task.id}
             self.store.emit("notification.simulated", result)
             return result
-        kinds = {"accompany": "accompany_simulated", "follow_me": "accompany_simulated",
+        kinds = {"accompany": "accompany", "follow_me": "accompany",
                  "wake": "wake_reply", "shake_hands": "shake_hands", "start_mapping": "start_mapping"}
         action = SafeRobotAction(kind=kinds.get(task.intent.intent, "move_to_known_zone"),
                                  destination=task.intent.destination)

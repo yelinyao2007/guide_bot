@@ -9,7 +9,6 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from typing import Literal
 from .robot.base import RobotError
-from .robot.mock import MockRobot
 from .robot.mujoco_adapter import DEFAULT_MODEL, MujocoRobotAdapter
 from .service import Service
 from .store import Store
@@ -28,9 +27,10 @@ def create_app(robot=None, database_url=None, timeout=None, resolver=None):
     async def lifespan(app):
         selected = robot
         if selected is None:
-            mode = os.getenv("ROBOT_BACKEND", "mock")
-            if mode == "mock":
-                selected = MockRobot(scenario=os.getenv("MOCK_SCENARIO", "normal"))
+            mode = os.getenv("ROBOT_BACKEND", "vbot")
+            if mode == "vbot":
+                from .robot.vbot_adapter import VbotEduAdapter
+                selected = VbotEduAdapter(poll_interval=float(os.getenv("VBOT_POLL_SECONDS", "2")))
             elif mode == "mujoco":
                 selected = MujocoRobotAdapter(model_path=os.getenv("MUJOCO_MODEL", str(DEFAULT_MODEL)),
                     scene=os.getenv("SIM_SCENARIO", "living_room"), viewer=os.getenv("MUJOCO_VIEWER", "0") == "1",
@@ -40,7 +40,7 @@ def create_app(robot=None, database_url=None, timeout=None, resolver=None):
                 from .robot.simvbot_adapter import SimVbotAdapter
                 selected = SimVbotAdapter()
             else:
-                raise RuntimeError("Only mock, mujoco and simvbot are enabled; Vbot hardware is unavailable")
+                raise RuntimeError("ROBOT_BACKEND 仅支持 vbot(真机EDU) / mujoco / simvbot；mock 已删除")
         store = Store(database_url or os.getenv("DATABASE_URL", "sqlite:///./guardian.db"))
         kwargs = {"resolver": resolver} if resolver else {}
         service = Service(selected, store, timeout if timeout is not None else float(os.getenv("TASK_TIMEOUT_SECONDS", "30")), **kwargs)
@@ -51,7 +51,7 @@ def create_app(robot=None, database_url=None, timeout=None, resolver=None):
         finally:
             await service.close()
 
-    app = FastAPI(title="最后一米守护者", lifespan=lifespan)
+    app = FastAPI(title="最后十米守护者", lifespan=lifespan)
 
     @app.exception_handler(RobotError)
     async def robot_error(request, exc):
@@ -98,8 +98,8 @@ def create_app(robot=None, database_url=None, timeout=None, resolver=None):
 
     @app.post("/api/demo/reset")
     async def reset():
-        if app.state.service.robot.get_status().backend != "mock":
-            raise RobotError("MOCK_ONLY")
+        if app.state.service.robot.get_status().backend not in ("mujoco", "simvbot"):
+            raise RobotError("SIM_ONLY", "重置演示仅仿真后端；真机无需重置")
         state = await app.state.service.recover("living_room")
         app.state.service.store.emit("demo.reset", {})
         return state
@@ -107,12 +107,34 @@ def create_app(robot=None, database_url=None, timeout=None, resolver=None):
     @app.get("/api/vbot/config")
     async def vbot_config_get():
         from . import vbot_config
-        return vbot_config.load()
+        return vbot_config.public(vbot_config.load())
 
     @app.post("/api/vbot/config")
     async def vbot_config_set(body: dict):
         from . import vbot_config
-        return vbot_config.save(body)
+        stored = vbot_config.load()
+        return vbot_config.public(vbot_config.save(vbot_config.merge_incoming(stored, body)))
+
+    @app.post("/api/vbot/dify-test")
+    async def vbot_dify_test(body: dict | None = None):
+        import asyncio as _aio
+        from . import dify_client, vbot_config
+        cfg = vbot_config.load()
+        sample = (body or {}).get("text") or "跟我开始记录场地"
+        if not cfg.get("dify_enabled", True):
+            return {"ok": False, "error": "Dify 开关已关闭（dify_enabled=false），当前使用本地规则", "sample": sample}
+        if not cfg.get("dify_api_key"):
+            return {"ok": False, "error": "未配置 Dify API 密钥：去 Dify 面板建 Workflow 应用 →「访问 API」→ 创建密钥（app- 开头）→ 填到上方配置并保存", "sample": sample}
+
+        def _run():
+            try:
+                parsed, raw, ms = dify_client.call_workflow(cfg, sample)
+                return {"ok": True, "elapsed_ms": ms, "sample": sample,
+                        "intent": dify_client.normalize(parsed, sample), "raw_output": raw[:500]}
+            except Exception as exc:
+                return {"ok": False, "error": f"{type(exc).__name__}: {exc}", "sample": sample}
+
+        return await _aio.to_thread(_run)
 
     @app.post("/api/vbot/test")
     async def vbot_test():

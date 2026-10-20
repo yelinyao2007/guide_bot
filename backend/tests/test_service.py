@@ -1,4 +1,3 @@
-import asyncio
 import time
 import pytest
 from fastapi.testclient import TestClient
@@ -6,8 +5,9 @@ from backend.app.agent import resolve
 from backend.app.domain import Intent, Task
 from backend.app.main import create_app
 from backend.app.robot.base import RobotError
-from backend.app.robot.mock import MockRobot
+from backend.app.robot.vbot_adapter import VbotEduAdapter
 from backend.app.store import Store
+from conftest import CFG, scripted_dog
 
 
 def wait_task(client, task_id, status):
@@ -22,7 +22,9 @@ def wait_task(client, task_id, status):
 
 @pytest.fixture
 def client(tmp_path):
-    with TestClient(create_app(MockRobot(duration=.15), f"sqlite:///{tmp_path}/test.db")) as client:
+    runner, _ = scripted_dog()
+    robot = VbotEduAdapter(cfg=CFG, runner=runner, poll_interval=.05)
+    with TestClient(create_app(robot, f"sqlite:///{tmp_path}/test.db")) as client:
         yield client
 
 
@@ -61,17 +63,33 @@ def test_serialized_motion_stop_and_recovery(client):
 def test_stop_bypasses_resolver(tmp_path):
     def forbidden(text):
         raise AssertionError("Resolver must never receive emergency stop")
-    with TestClient(create_app(MockRobot(), f"sqlite:///{tmp_path}/stop.db", resolver=forbidden)) as client:
+    runner, _ = scripted_dog()
+    robot = VbotEduAdapter(cfg=CFG, runner=runner, poll_interval=.05)
+    with TestClient(create_app(robot, f"sqlite:///{tmp_path}/stop.db", resolver=forbidden)) as client:
         for command in ("立即停止", "停下", "stop", "紧急停止！"):
             assert client.post("/api/commands", json={"text": command}).status_code == 200
 
 
-@pytest.mark.parametrize("scenario,expected,code", [("timeout", "timed_out", "TASK_TIMEOUT"), ("disconnect", "failed", "ROBOT_DISCONNECTED"), ("obstacle", "failed", "OBSTACLE_BLOCKED")])
-def test_faults_and_timeout(tmp_path, scenario, expected, code):
-    with TestClient(create_app(MockRobot(scenario=scenario), f"sqlite:///{tmp_path}/fault.db", timeout=.3)) as client:
+@pytest.mark.parametrize("fault,expected,code", [("drop_midway", "failed", "SERVICE_REJECTED"), ("busy", "failed", "ROBOT_BUSY")])
+def test_faults(tmp_path, fault, expected, code):
+    runner, _ = scripted_dog(fault=fault, drop_after=2 if fault == "drop_midway" else None)
+    robot = VbotEduAdapter(cfg=CFG, runner=runner, poll_interval=.05)
+    with TestClient(create_app(robot, f"sqlite:///{tmp_path}/fault.db")) as client:
         task = client.post("/api/commands", json={"text": "去客厅"}).json()["task"]
         assert wait_task(client, task["id"], expected)["error_code"] == code
-        assert client.get("/api/robot/status").json()["stopped"]
+
+
+def test_disconnect_at_boot_latches(tmp_path):
+    runner, _ = scripted_dog(fault="disconnect")
+    robot = VbotEduAdapter(cfg=CFG, runner=runner, poll_interval=.02)
+    with TestClient(create_app(robot, f"sqlite:///{tmp_path}/boot.db")) as client:
+        until = time.monotonic() + 3
+        while time.monotonic() < until:
+            if client.post("/api/commands", json={"text": "去客厅"}).status_code == 409:
+                assert not client.get("/api/health").json()["ready"]
+                return
+            time.sleep(.05)
+        pytest.fail("boot disconnect did not latch")
 
 
 def test_websocket_order_and_replay(client):
@@ -93,7 +111,9 @@ def test_persistence_restart_and_terminal_immutability(tmp_path):
     store.transition(task.id, "queued")
     store.transition(task.id, "running")
     store.engine.dispose()
-    with TestClient(create_app(MockRobot(), url)) as client:
+    runner, _ = scripted_dog()
+    robot = VbotEduAdapter(cfg=CFG, runner=runner, poll_interval=.05)
+    with TestClient(create_app(robot, url)) as client:
         assert client.get(f"/api/tasks/{task.id}").json()["error_code"] == "SERVER_RESTART"
         with pytest.raises(RobotError, match="INVALID_TRANSITION"):
             client.app.state.service.store.transition(task.id, "running")
@@ -105,7 +125,9 @@ def test_confirmation_expiry_and_unknown(client):
 
 
 def test_confirmation_timeout(tmp_path):
-    with TestClient(create_app(MockRobot(), f"sqlite:///{tmp_path}/expiry.db", timeout=.05)) as client:
+    runner, _ = scripted_dog()
+    robot = VbotEduAdapter(cfg=CFG, runner=runner, poll_interval=.05)
+    with TestClient(create_app(robot, f"sqlite:///{tmp_path}/expiry.db", timeout=.05)) as client:
         task = client.post("/api/commands", json={"text": "求助"}).json()["task"]
         wait_task(client, task["id"], "timed_out")
         assert client.post(f'/api/tasks/{task["id"]}/confirm').status_code == 409

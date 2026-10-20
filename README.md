@@ -1,41 +1,65 @@
-# 最后一米守护者 / Guardian Dog
+# 最后十米 · 小狗找空座（guide_bot）
 
-本项目是一个不连接真实机器人、不发送真实通知的本地演示系统。默认使用 `MockRobot`，支持任务状态机、SQLite 事件持久化、急停、确认门禁和 WebSocket 看板。MuJoCo 后端仅用于经过验证的本地物理实验，当前未验证步态时不会开放行走。
+维他动力大头狗 EDU（VbotBaboEDU / foot_quadruped）的应用层项目：
+**语音指令 → Dify 意图识别 → 规则化链路 → 狗的原生能力**（跟随 / SLAM 建图 / 语义导航 / TTS），
+外带一块实时看板。核心场景：公共空间里让机器狗帮你找空座位并带你过去——"最后十米"。
 
-## 启动
+## 它能干什么
 
-```bash
-python3 -m venv .venv
-.venv/bin/pip install -e '.[test]'
-make frontend-install
-make dev
-```
+四句语音暗号（Dify 意图识别；其余话语兜底透传给狗原生智能体，绝不瞎触发）：
 
-打开 <http://localhost:5173>。只运行后端时可访问 <http://localhost:8000>，生产式静态看板需要先执行 `make frontend-build`，然后由 FastAPI 挂载 `frontend/dist`。
+| 暗号 | 链路 |
+|---|---|
+| 跟我开始记录场地 | 跟随 + SLAM 建图 + 存图登记（看板地图下拉可选/加载定位） |
+| 检查链接状态 | 链路 + 设备只读自检 → 语音播报（"已链接到<主人称呼>的电脑……"） |
+| 去帮我找个位子 | SemanticNavQuery 找空位 → 播报方位 → 引导 → 最后十米确认 → 蹲守 |
+| 这附近有什么好玩的地方 | 抓帧 + OmniPrompt 看图说话 → 口语播报 |
 
-## 演示流程
+- 看板 `:8000`：任务状态机、事件流、真机/Dify 配置面板（含 API Key 打码与「测试 Dify」按钮）、仿真编排面板
+- 真机适配器 `VbotEduAdapter`：SSH 通道跑 ros2 CLI（ROS 只在狗上），路由按类型后缀现场发现，
+  状态轮询线程缓存，安全停止序列按 EDU 文档（SAFE_STOP/SAFE_LAYDOWN，不用 FIXED_* 顶替）
+- 意图解析 `dify_resolve`：Dify workflow 优先，超时/失败静默降级本地规则；**急停永远走本地拦截，不经过任何远程服务**
 
-1. 点击“帮我联系家人”，观察任务停留在“待确认”；点击确认后只记录 `delivery_status=simulated`。
-2. 发送“去客厅”，观察任务排队、执行和完成。
-3. 执行长任务期间点击“紧急停止”，任务被取消并进入停止锁存；点击“恢复模拟”后才允许新任务。
-4. 设置 `MOCK_SCENARIO=obstacle`、`disconnect` 或 `timeout`，重启后端即可演示不同故障事件。
-
-## 测试
-
-```bash
-make test
-make frontend-build
-cd frontend && npm test
-```
-
-配置见 `.env.example`。物理后端需要额外安装 MuJoCo 并准备指定的 Menagerie Go2 模型；它不会连接 Vbot、CAN 或任何真实通知服务。
-
-MuJoCo 启动：
+## 快速开始（VM ros@192.168.64.2）
 
 ```bash
-.venv/bin/pip install -e '.[simulation,test]'
-bash scripts/fetch_model.sh
-ROBOT_BACKEND=mujoco make dev
+bash scripts/start_all_vm.sh                       # 真机模式（默认；不启 MuJoCo）
+bash scripts/start_all_vm.sh --with-sim            # 空位仿真 + simvbot 模式（MuJoCo :8001）
+bash scripts/start_all_vm.sh --with-sim --viewer   # 再加虚拟机桌面 3D 窗口（需 Xorg 会话）
 ```
 
-可添加 `MUJOCO_VIEWER=1` 打开原生窗口（需本机图形环境）。环境变量通过 shell 设置；若复制 `.env.example` 为 `.env`，可用 `set -a; . ./.env; set +a` 导出后再启动。模型固定来源和步态限制见 [控制器调查](docs/controllers.md)，操作步骤见 [演示脚本](docs/demo-script.md)。
+看板地址：`http://<vm-ip>:8000`（Mac 直连 `http://192.168.64.2:8000`）。
+狗未连线时看板显示"未连接"属真实状态：插网线 → 看板「自检」→「恢复」解锁。
+
+## 配置
+
+- 真机/Dify 配置在看板「真机连接配置」面板，落盘 `vbot_config.json`
+  （**含 API Key，已 gitignore**；样例见 `vbot_config.example.json`）
+- Dify 栈在 VM `~/dify`（docker compose，nginx :80）；workflow 提示词与数据格式契约见
+  《大头狗Dify语音调度接入方案.md》（ovo 仓 ros2/ 目录）
+- 前端构建：VM 无 node，需在外部机器 `npm install && npm run build` 后把
+  `frontend/src` 与 `frontend/dist` 推回 VM（dist 已 gitignore）
+
+## 目录
+
+```
+backend/     FastAPI + 任务状态机 + robot 适配器（vbot 真机 / simvbot 仿真 / mujoco 物理实验）
+frontend/    React 看板（Vite）
+simulation/  MuJoCo 空位仿真 + 假感知服务 + 编排 HTTP :8001（--with-sim 时启动）
+scripts/     启动脚本、现场案例脚本
+docs/        架构、安全、控制器调查、demo 脚本
+```
+
+## 安全与纪律
+
+- 急停词本地拦截，最快路径；跟随限速写死 0.5 m/s（散步速度），不可被网页/指令覆盖
+- 电量 < 30% 拒绝出发并语音告知；SLAM `loc_status` LOST 即停车 + 语音，不盲重试
+- 真机新动作首测离地/扶稳、急停手段在手边；服务响应只代表接纳，观察终态才算完成
+- 多会话协作守则见 `CLAUDE.md`（唯一工作副本 = VM、文件级合并、禁止整目录覆盖、裁决机制）
+
+## 相关文档
+
+- 《大头狗Dify语音调度接入方案.md》——Dify 插入点、数据格式契约、四条链路细则、现场核对清单
+- 飞书《最后十米 · 小狗找空座 —— 项目说明文档》——项目概述/三步流程/三层架构画板
+- 飞书《机器狗和大管家 Dify —— 讲给小朋友的版本》——白话版原理与接入教程
+- `.claude/skills/vbot-dog/`——连接自检、接口速查、debug 坑表、空位案例脚本

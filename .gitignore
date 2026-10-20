@@ -1,29 +1,22 @@
-.venv/
-__pycache__/
-.pytest_cache/
-*.egg-info/
-*.db
-.env
-assets/menagerie/
-node_modules/
-dist/
-*.tsbuildinfo
-
-# Python virtual environments
-.pdf-venv/
-.venv/
-venv/
 __pycache__/
 *.pyc
-
-# IDE
-.idea/
-.vscode/
-
-# Node.js
-node_modules/
-
-# Secrets
-.env
-.env.*
-!.env.example
+*.log
+MUJOCO_LOG.TXT
+guardian.db
+vbot_config.json
+frontend/node_modules/
+frontend/dist/
+frontend/tsconfig.tsbuildinfo
+simulation/assets/
+*.bak*
+build/
+*.egg-info/
+# VM 根目录误放副本（正身在 scripts/ 与 simulation/），不入库
+/demo_smoke.py
+/fetch_model.sh
+/physics_demo.py
+/start_all_vm.sh
+/fetch_assets.sh
+/gen_dog_xml.py
+/run_sim.py
+/scene_empty_seat.xml

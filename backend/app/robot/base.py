@@ -11,7 +11,7 @@ class RobotError(RuntimeError):
 
 class SafeRobotAction(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    kind: Literal["move_to_known_zone", "accompany_simulated", "stop", "wake_reply", "shake_hands", "start_mapping"]
+    kind: Literal["move_to_known_zone", "accompany", "stop", "wake_reply", "shake_hands", "start_mapping"]
     destination: Literal["living_room", "bedroom", "entrance"] | None = None
 
 
@@ -26,6 +26,10 @@ class RobotStatus(BaseModel):
     available: bool = False
     stopped: bool = True
     locomotion: bool = False
+    posture: str = "unknown"  # 真机 /locomotion/status：unknown/standing/lying/transitioning
+    current_action: str = ""
+    body_mode: str = ""
+    battery_percent: float | None = None
     position: list[float] = Field(default_factory=lambda: [0., 0., 0.])
     quaternion_wxyz: list[float] = Field(default_factory=lambda: [1., 0., 0., 0.])
     joints: list[float] = Field(default_factory=list)

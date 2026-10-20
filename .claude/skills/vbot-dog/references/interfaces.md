@@ -14,7 +14,7 @@ export ROS_DOMAIN_ID=178
 export ROS_LOCALHOST_ONLY=1
 ```
 
-跨机：Zenoh client `tcp/192.168.1.2:7447`，用户 `vita01-datou`，密码板端 `/app_param/zenoh/s100_session.json5`。
+跨机：Zenoh client `tcp/192.168.1.2:7447`，用户 `<ZENOH_USER：见狗端 /app_param/zenoh/s100_session.json5>`，密码板端 `/app_param/zenoh/s100_session.json5`。
 
 ## 2. 只读 topic（订阅）
 
