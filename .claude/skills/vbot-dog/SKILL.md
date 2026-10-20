@@ -80,14 +80,14 @@ ros2 service call /locomotion/control_following function_msgs/srv/ControlFollowi
 cd <本 skill 目录>/scripts && bash run_case.sh
 ```
 
-它做的事：scp 脚本上狗 → ssh 源环境 → 运行。脚本逻辑（零训练、全现成接口）：
+它做的事：scp 脚本上狗 → ssh 源环境 → 运行。脚本逻辑（零训练、全现成接口，v2 最后十米版）：
 
 1. 按类型后缀发现 `SemanticNavQuery` 与 `SetSpeak` 服务
-2. 调 SemanticNavQuery：prompt="空椅子 空座位 无人的座椅"，**ROI 全幅模式**（camera_frame_id=stereo_left，roi=0,0,1280,720）——不用自己解码 H.265 视频流
-3. 成功 → 机身系方向向量转口语方位（左/右/前/后+距离）→ `/set_speak`："这里有空位，在您左前方约 3 米。"
-4. 失败重试 ≤3 次 → 仍失败播报"抱歉，暂时没有找到空位。"（诚实降级，不瞎报）
-
-前置条件：已建图并定位（`/slam/status` loc_status=TRACKING），因为 SemanticNavQuery 会查 SLAM 地图给距离。没建图时它能给方向但距离/点云不可信——脚本会检查并提示。
+2. **提前找空位**：query → 最近空座位（仿真 message=座位名；真机=VLM 答复）
+3. 播报"找到空位，X 座，方位约 N 米，我带您过去" → 发 `/sim/nav_goal`（真机由 VbotBackend 翻译成 NAV_TO_POINT）
+4. **最后十米确认**：到位旁再 query 一次；座位被抢 → 播报"刚被占用，换一个"并重试一次
+5. 确认空 → 播报"这里有空位" + 发 `/sim/pose crouch` → 狗蹲守位旁（真机≈lie_down 预置动作）
+6. 全程失败 → 诚实播报"没找到"，不瞎报
 
 验收：狗出声且方位与实际大致相符；换 3 个不同座位摆放各试 5 次记录成功率。
 
