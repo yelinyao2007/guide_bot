@@ -1,11 +1,10 @@
 #!/bin/bash
 # 虚拟机内一键起/重启：backend(看板+任务)。
-# 默认 = 真机模式(ROBOT_BACKEND=vbot)，不启动 MuJoCo（2026-10-20 用户指示关闭仿真）。
+# 默认 = 真机模式(ROBOT_BACKEND=vbot)，并清理任何残留 MuJoCo 进程（用户裁决：MuJoCo 默认关）。
 # 用法:
-#   bash start_all_vm.sh                     → 真机模式（狗没连时看板显示"未连接"，属真实状态）
-#   bash start_all_vm.sh --with-sim          → 空位仿真 + simvbot 模式（MuJoCo，:8001）
-#   bash start_all_vm.sh --with-sim --viewer → 同上 + 虚拟机桌面 3D 窗口（需 Xorg 会话；
-#                                              XWayland 下 GLFW 可能 segfault，此时去掉 --viewer）
+#   bash start_all_vm.sh                     → 真机模式（狗没连时看板显示未连接，属真实状态）
+#   bash start_all_vm.sh --with-sim          → 空位仿真 + simvbot 模式（MuJoCo，:8001；按需，用前知会）
+#   bash start_all_vm.sh --with-sim --viewer → 同上 + 虚拟机桌面 3D 窗口（需 Xorg 会话）
 set -e
 WITH_SIM=0
 VIEWER=""
@@ -15,11 +14,10 @@ for a in "$@"; do
 done
 
 pkill -f "uvicorn [b]ackend" 2>/dev/null || true
+# 无论何种模式，先清干净 MuJoCo 残留（裁决：默认不启仿真；v4 修复：默认模式也清孤儿）
+fuser -k 8001/tcp 2>/dev/null || true
+pkill -f "[r]un_sim" 2>/dev/null || true
 pkill -f "[m]jdog2" 2>/dev/null || true
-if [ "$WITH_SIM" = "1" ]; then
-  fuser -k 8001/tcp 2>/dev/null || true
-  pkill -f "[r]un_sim" 2>/dev/null || true
-fi
 sleep 2
 
 cd ~/guide_bot
