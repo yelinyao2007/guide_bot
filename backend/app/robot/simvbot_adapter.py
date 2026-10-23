@@ -62,6 +62,10 @@ class SimVbotAdapter(RobotAdapter):
             self._post("/speak", {"text": "我在，请说指令。"})
         elif action.kind == "shake_hands":
             self._post("/speak", {"text": "握手！握握。"})
+        elif action.kind == "birthday_song":
+            self._post("/speak", {"text": "祝土豆丝生日快乐。"})
+            self._post("/speak", {"text": "祝你生日快乐，祝你生日快乐，祝土豆丝生日快乐，祝你生日快乐。"})
+            self._post("/speak", {"text": "现在开始原地生日舞：左右摇摆，灯光闪烁。"})
         elif action.kind == "accompany":
             self._post("/person/walk")
             self._post("/dog/follow/start")

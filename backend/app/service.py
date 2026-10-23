@@ -52,7 +52,7 @@ class Service:
         if inspect.isawaitable(intent):
             intent = await intent
         # find_seat/nearby_fun/record_field_save: 识别但暂不执行（P2 链路未实现），只透传显示
-        if intent.intent in ("unknown", "status", "passthrough", "find_seat", "nearby_fun", "record_field_save"):
+        if intent.intent in ("unknown", "status", "passthrough", "find_seat", "nearby_fun"):
             return {"intent": intent.model_dump(), "task": None, "robot": self.robot.get_status().model_dump()}
         if self.halted or self.recovering:
             raise RobotError("STOP_LATCHED")
@@ -94,7 +94,12 @@ class Service:
             raise RobotError("ROBOT_BUSY")
         self.recovering = True
         try:
-            await self.emergency_stop()
+            if not self.halted:
+                await self.emergency_stop()
+            else:
+                for task in self.store.tasks():
+                    if task.status not in TERMINAL:
+                        self.store.transition(task.id, "cancelled", "RECOVERY")
             if self.current:
                 self.current.cancel()
                 with suppress(asyncio.CancelledError):
@@ -127,7 +132,8 @@ class Service:
             self.store.emit("notification.simulated", result)
             return result
         kinds = {"accompany": "accompany", "follow_me": "accompany",
-                 "wake": "wake_reply", "shake_hands": "shake_hands", "start_mapping": "start_mapping"}
+                 "wake": "wake_reply", "shake_hands": "shake_hands", "start_mapping": "start_mapping",
+                 "birthday_song": "birthday_song", "record_field_save": "save_mapping"}
         action = SafeRobotAction(kind=kinds.get(task.intent.intent, "move_to_known_zone"),
                                  destination=task.intent.destination)
         return (await self.robot.execute(action, task.id)).model_dump()

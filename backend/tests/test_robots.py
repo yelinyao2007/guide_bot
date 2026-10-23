@@ -10,6 +10,7 @@ from conftest import CFG, scripted_dog
 
 ACCOMPANY = SafeRobotAction(kind="accompany")
 MOVE = SafeRobotAction(kind="move_to_known_zone", destination="living_room")
+BIRTHDAY = SafeRobotAction(kind="birthday_song")
 
 
 def make_robot(**kw):
@@ -47,6 +48,20 @@ async def test_vbot_accompany_speed_and_stop_payloads():
     assert "mode: 3" in calls[-1] and "target_state: 1" in calls[-1]  # SAFE_STOP_SEQUENCE
 
 
+async def test_vbot_birthday_sends_greeting_then_song():
+    robot, calls = make_robot()
+    robot._discover()
+    robot._refresh()
+    result = await robot.execute(BIRTHDAY, "birthday-1")
+    assert result.completed
+    speech_calls = [call for call in calls if "function_msgs/srv/SetSpeak" in call]
+    assert len(speech_calls) == 2
+    assert "祝土豆丝生日快乐。" in speech_calls[0]
+    assert "祝你生日快乐" in speech_calls[1]
+    assert sum("lowlevel_msg/srv/HeadAction" in call for call in calls) == 5
+    assert sum("peripheral_msgs/srv/LightControl" in call for call in calls) == 5
+
+
 async def test_vbot_stand_uses_manual_not_fixed_stand():
     robot, calls = make_robot()
     robot._discover()
@@ -74,6 +89,18 @@ async def test_vbot_move_to_nav_payload():
     result = await robot.execute(MOVE, "nav-1")
     assert result.completed
     assert "target_name: 'living_room'" in "\n".join(calls)
+
+
+async def test_vbot_mapping_uses_empty_then_configured_name(tmp_path):
+    robot, calls = make_robot()
+    robot.cfg["map_name"] = "demo_site_1f"
+    robot._discover()
+    robot._refresh()
+    await robot.execute(SafeRobotAction(kind="start_mapping"), "map-start")
+    await robot.execute(SafeRobotAction(kind="save_mapping"), "map-save")
+    slam = [call for call in calls if "slam_msgs/srv/SetSlamMode" in call]
+    assert "map_name: ''" in slam[-2]
+    assert "map_name: 'demo_site_1f'" in slam[-1]
 
 
 async def test_vbot_busy_gate():

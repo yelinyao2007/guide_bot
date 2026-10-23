@@ -15,6 +15,8 @@ ROUTES = "\n".join([
     "/locomotion/control_following: function_msgs/srv/ControlFollowing",
     "/locomotion/set_follow_speed: function_msgs/srv/SetFollowSpeed",
     "/set_speak: function_msgs/srv/SetSpeak",
+    "/head_action: lowlevel_msg/srv/HeadAction",
+    "/light_node/control: peripheral_msgs/srv/LightControl",
     "/slam/set_slam_mode: slam_msgs/srv/SetSlamMode",
     "/locomotion/status [software_msgs/msg/LocomotionStatus]",
     "/locomotion/body_action_status [function_msgs/msg/BodyActionStatus]",

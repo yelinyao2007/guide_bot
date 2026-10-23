@@ -9,3 +9,4 @@
 .checks{display:grid;grid-template-columns:1fr 1fr;gap:2px 12px;font-size:12px;margin:6px 0}
 .panel.vbot p.notice{margin:4px 0;font-size:11px}
 .simview{width:100%;max-width:420px;border-radius:8px;background:#000;margin:4px 0}
+.seats{grid-column:1/-1;min-height:0}.seat-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}.seat-heading h2{margin:0}.seat-camera{display:block;width:100%;max-width:960px;max-height:600px;object-fit:contain;background:#0e141c;border-radius:8px;margin:14px auto}.seat-list{padding-left:20px;font-size:14px;line-height:1.8}.seat-hint{color:#8c9bae;font-size:12px;line-height:1.6;margin-top:14px}button:disabled{opacity:.5;cursor:not-allowed}

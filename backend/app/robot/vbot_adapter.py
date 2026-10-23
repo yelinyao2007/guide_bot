@@ -38,6 +38,8 @@ SVC = {
     "follow": "function_msgs/srv/ControlFollowing",
     "speed": "function_msgs/srv/SetFollowSpeed",
     "speak": "function_msgs/srv/SetSpeak",
+    "head": "lowlevel_msg/srv/HeadAction",
+    "light": "peripheral_msgs/srv/LightControl",
     "slam": "slam_msgs/srv/SetSlamMode",
 }
 
@@ -246,12 +248,41 @@ class VbotEduAdapter(RobotAdapter):
                          f"machine_language_name: '', human_language_text: '握手！握握。'}}")
             self._accepted(ok, out, "SetSpeak")
             return ActionResult(detail="EDU 无开放握手预设，已降级为播报")
+        if action.kind == "birthday_song":
+            for text in ("祝土豆丝生日快乐。", "祝你生日快乐，祝你生日快乐，祝土豆丝生日快乐，祝你生日快乐。"):
+                ok, out = await self._call_service(
+                    "speak", f"{{target_state: 1, mode: 1, req_id: '{req}', pre_check: false, "
+                             f"machine_language_name: '', human_language_text: '{self._quote(text)}'}}")
+                self._accepted(ok, out, "SetSpeak")
+                await asyncio.sleep(.2)
+            poses = ((0.12, -0.35), (0.12, 0.35), (-0.08, -0.25), (-0.08, 0.25), (0.0, 0.0))
+            for index, (pitch, yaw) in enumerate(poses):
+                ok, out = await self._call_service(
+                    "head", f"{{target_state: 1, mode: 0, req_id: '{req}-dance-{index}', pre_check: false, "
+                            f"duration_ms: 500, loop_enabled: false, playback_rate: 1.5, "
+                            f"target_angles: [{pitch}, {yaw}], action_path: ''}}")
+                self._accepted(ok, out, "HeadAction 生日舞")
+                ok, out = await self._call_service(
+                    "light", f"{{target_state: 1, req_id: '{req}-light-{index}', pre_check: false, mode: 5, "
+                             f"red: {255 if index % 2 == 0 else 80}, green: {80 if index % 2 == 0 else 180}, "
+                             f"blue: 255, brightness: 220, speed: 2.0, duration_ms: 500}}")
+                self._accepted(ok, out, "LightControl 生日舞")
+            return ActionResult(detail="已祝福、播歌，并完成原地头部和灯效生日舞")
         if action.kind == "start_mapping":
             ok, out = await self._call_service(
                 "slam", "{mode: 2, request_reloc: false, map_name: '', "
                         "client_id: 'guide_bot', client_req_id: 0}")
             self._accepted(ok, out, "SetSlamMode 建图")
-            return ActionResult(detail="建图模式已请求；进度看 /slam/status")
+            return ActionResult(detail="已进入建图模式；请牵引机器狗走完场地后发送‘保存地图’")
+        if action.kind == "save_mapping":
+            map_name = str(self.cfg.get("map_name", "")).strip()
+            if not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", map_name):
+                raise RobotError("MAP_NAME_REQUIRED", "请先在真机连接配置中填写地图名（仅字母、数字、下划线或短横线）")
+            ok, out = await self._call_service(
+                "slam", f"{{mode: 2, request_reloc: false, map_name: '{map_name}', "
+                        "client_id: 'guide_bot', client_req_id: 0}}")
+            self._accepted(ok, out, "SetSlamMode 保存地图")
+            return ActionResult(detail=f"已请求保存地图 {map_name}；请等待 /slam/status 变为 MAP_STATUS_READY")
         raise RobotError("UNSUPPORTED_ACTION", action.kind)
 
     async def stop(self):
@@ -266,7 +297,15 @@ class VbotEduAdapter(RobotAdapter):
 
     async def recover(self):
         self.routes = {}
-        await asyncio.to_thread(self._refresh)
+        # Reconnect/rediscover after a stop latch; refresh is allowed to fail
+        # while the dog or its SSH link is offline and must report that state.
+        try:
+            await asyncio.to_thread(self._refresh)
+        except RobotError:
+            with self._lock:
+                self._status.available = False
+                self._status.error_code = "ROBOT_DISCONNECTED"
+            raise
 
     # 供看板/CLI 显式调用的文档动作（不在 SafeRobotAction 六_kind 内）
     async def stand(self):

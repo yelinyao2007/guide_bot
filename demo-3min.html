@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>最后十米守护者｜3分钟演示</title>
+  <style>
+    :root{--bg:#080b12;--panel:#111825;--panel2:#172234;--ink:#f6f8fc;--muted:#9aa9bd;--line:#26354a;--cyan:#63e6e2;--lime:#b6ee7c;--orange:#ffb86b;--pink:#ff7ca8;--shadow:0 24px 80px #0008}
+    *{box-sizing:border-box}html,body{margin:0;min-height:100%;font-family:Inter,"PingFang SC","Microsoft YaHei",system-ui,sans-serif;background:radial-gradient(circle at 78% 8%,#163b4b 0,#080b12 34%),var(--bg);color:var(--ink)}
+    body{overflow-x:hidden}.wrap{max-width:1240px;margin:auto;padding:36px 42px 70px}.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:62px}.brand{display:flex;align-items:center;gap:12px;letter-spacing:.12em;font-size:12px;color:var(--muted)}.mark{width:36px;height:36px;border:1px solid var(--cyan);border-radius:12px;display:grid;place-items:center;color:var(--cyan);font-size:20px;box-shadow:0 0 28px #63e6e244}.timer{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13px}.timer b{font-variant-numeric:tabular-nums;color:var(--cyan);font-size:16px}.timer button,.action{border:1px solid var(--line);background:#ffffff09;color:var(--ink);border-radius:9px;padding:9px 12px;cursor:pointer}.timer button:hover,.action:hover{border-color:var(--cyan);background:#63e6e214}
+    .hero{display:grid;grid-template-columns:1.2fr .8fr;gap:48px;align-items:end;min-height:390px}.eyebrow{color:var(--cyan);letter-spacing:.2em;font-size:12px;font-weight:700}.hero h1{font-size:clamp(48px,7vw,94px);line-height:.98;letter-spacing:-.07em;margin:20px 0 22px;max-width:760px}.hero h1 em{font-style:normal;color:var(--lime)}.lead{font-size:20px;line-height:1.65;color:#c6d1df;max-width:650px}.hero-note{border-left:2px solid var(--orange);padding:18px 0 18px 22px;color:var(--muted);line-height:1.8}.hero-note strong{display:block;color:var(--orange);font-size:13px;letter-spacing:.12em;margin-bottom:7px}
+    .bar{display:flex;gap:10px;align-items:center;margin:68px 0 25px;color:var(--muted);font-size:13px}.bar:before{content:"";width:40px;height:1px;background:var(--cyan)}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:15px}.card{background:linear-gradient(145deg,#182337,#0f1623);border:1px solid var(--line);border-radius:18px;padding:24px;min-height:220px;box-shadow:var(--shadow);position:relative;overflow:hidden}.card:after{content:"";position:absolute;width:170px;height:170px;border-radius:50%;right:-90px;bottom:-110px;background:#63e6e21a}.number{font-size:12px;color:var(--cyan);letter-spacing:.15em}.card h2{font-size:22px;margin:18px 0 10px}.card p{color:var(--muted);line-height:1.7;margin:0}.pill{display:inline-flex;margin-top:20px;border-radius:100px;padding:6px 10px;font-size:12px;color:var(--lime);background:#b6ee7c13;border:1px solid #b6ee7c42}.orange{color:var(--orange)}.pink{color:var(--pink)}
+    .story{display:grid;grid-template-columns:.9fr 1.1fr;gap:18px;margin-top:16px}.story-panel{background:#0d141f;border:1px solid var(--line);border-radius:18px;padding:26px}.story-panel h2{margin:0 0 20px;font-size:18px}.steps{display:grid;gap:12px}.step{display:grid;grid-template-columns:36px 1fr;gap:12px;align-items:start;padding:14px;border:1px solid #ffffff0b;border-radius:12px;background:#ffffff05}.step i{font-style:normal;color:var(--cyan);font-size:12px;padding-top:2px}.step b{display:block;margin-bottom:5px}.step span{font-size:13px;color:var(--muted);line-height:1.55}.flow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:28px}.node{padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:#182437;color:#dce7f4;font-size:13px}.arrow{color:var(--cyan)}
+    .quote{font-size:24px;line-height:1.5;color:#fff;margin:24px 0}.quote mark{color:var(--lime);background:none}.close{margin-top:42px;padding:28px;border-radius:18px;background:linear-gradient(100deg,#17343b,#182c32 55%,#20283b);border:1px solid #63e6e244;display:flex;justify-content:space-between;gap:25px;align-items:center}.close h2{margin:0 0 8px;font-size:23px}.close p{margin:0;color:#b8c7d6;line-height:1.6}.close .cta{color:var(--cyan);font-weight:700;white-space:nowrap}.foot{display:flex;justify-content:space-between;margin-top:26px;color:#627389;font-size:12px}.kbd{border:1px solid #52657d;border-bottom-width:2px;border-radius:5px;padding:2px 6px;color:#cbd7e7}
+    .progress{position:fixed;top:0;left:0;height:3px;width:0;background:linear-gradient(90deg,var(--cyan),var(--lime));z-index:3;transition:width .2s}.flash{animation:flash .5s ease}@keyframes flash{50%{box-shadow:0 0 0 5px #63e6e233,var(--shadow)}}
+    @media(max-width:850px){.wrap{padding:24px 20px 50px}.top{margin-bottom:42px}.hero,.story{grid-template-columns:1fr;gap:25px}.hero h1{font-size:58px}.grid{grid-template-columns:1fr}.card{min-height:auto}.close{display:block}.close .cta{display:block;margin-top:18px}.foot{gap:15px;flex-direction:column}}
+    @media print{body{background:#fff;color:#111}.wrap{max-width:none;padding:20px}.card,.story-panel,.close{box-shadow:none;background:#fff;border-color:#bbb}.lead,.hero-note,.card p,.step span,.story-panel p{color:#333}.timer,.action{display:none}}
+  </style>
+</head>
+<body>
+  <div class="progress" id="progress"></div>
+  <main class="wrap">
+    <header class="top"><div class="brand"><span class="mark">🐕</span><span>GUARDIAN DOG / VBOT EDU</span></div><div class="timer"><b id="clock">03:00</b><button id="timerBtn">开始计时</button><button id="fullBtn">全屏</button></div></header>
+    <section class="hero">
+      <div><div class="eyebrow">3 MINUTE DEMO · LAST MILE</div><h1>让机器狗从<br><em>能动</em>到能帮忙。</h1><p class="lead">我做的是一层面向真实场景的机器狗应用：把语音、视觉、任务编排和机器狗原生能力，组合成普通人可以直接使用的交互。</p></div>
+      <div class="hero-note"><strong>今天演示三个瞬间</strong>机器狗能听懂指令，能看见环境，能把动作安全地执行出来。<br>最后，我会让它为土豆丝送上一段生日祝福和原地生日舞。</div>
+    </section>
+    <div class="bar">演示路线 / THE STORY</div>
+    <section class="grid">
+      <article class="card"><span class="number">01 / LISTEN</span><h2>听懂人话</h2><p>说“去帮我找个位子”，系统先识别意图，再进入对应任务链路。急停指令始终走本地安全通道。</p><span class="pill">语音 → 意图 → 任务</span></article>
+      <article class="card"><span class="number">02 / SEE</span><h2>看见空位</h2><p>电脑端接收狗的摄像头画面，检测椅子、人员和遮挡，连续多帧确认后，给出疑似空位和画面方位。</p><span class="pill">视觉 → 判断 → 播报</span></article>
+      <article class="card"><span class="number">03 / ACT</span><h2>做出回应</h2><p>通过同一个管理页面控制真机：语音播报、状态监控、任务队列和恢复操作都被统一起来。</p><span class="pill">控制 → 反馈 → 可追踪</span></article>
+    </section>
+    <div class="bar">现场演示 / LIVE SCRIPT</div>
+    <section class="story">
+      <article class="story-panel"><h2>我会这样讲</h2><div class="steps">
+        <div class="step"><i>0:00</i><div><b>先看管理页面</b><span>“这里是统一管理页。它同时展示机器人状态、任务队列、视觉画面和事件记录。”</span></div></div>
+        <div class="step"><i>0:35</i><div><b>演示交互指令</b><span>“我输入一句自然语言，系统把它变成结构化意图，再交给机器狗执行。”</span></div></div>
+        <div class="step"><i>1:10</i><div><b>演示找空位</b><span>“现在让它找空位。绿色框是稳定候选，红色代表人员重叠，黄色代表遮挡。”</span></div></div>
+        <div class="step"><i>2:00</i><div><b>演示生日舞</b><span>点击“土豆丝生日快乐”：先祝福，再播生日歌，最后原地左右摆头并配合灯效。</span></div></div>
+      </div></article>
+      <article class="story-panel"><h2>一条指令背后的链路</h2><p class="quote">“我找到这里有个空位。”<br><mark>这句话不是写死的演示词，而是一次完整的感知闭环。</mark></p><div class="flow"><span class="node">语音 / 页面</span><b class="arrow">→</b><span class="node">意图识别</span><b class="arrow">→</b><span class="node">视觉检测</span><b class="arrow">→</b><span class="node">候选确认</span><b class="arrow">→</b><span class="node">VBOT 播报</span></div><p style="margin-top:28px;color:var(--muted);line-height:1.7">计算量大的视觉推理放在伴随电脑，狗端只负责摄像头、原生 ROS 能力和执行反馈。这样既保留真实硬件能力，也方便快速迭代应用。</p></article>
+    </section>
+    <section class="close"><div><h2>从一个动作，到一个可用的产品。</h2><p>这套系统的价值，是把机器狗的能力变成可理解、可管理、可验证的体验。</p></div><div class="cta">听懂 · 看见 · 执行 · 反馈</div></section>
+    <footer class="foot"><span>最后十米守护者 · VBOT EDU</span><span>键盘 <span class="kbd">Space</span> 开始 / 暂停　<span class="kbd">F</span> 全屏</span></footer>
+  </main>
+  <script>
+    const clock=document.querySelector('#clock'), btn=document.querySelector('#timerBtn'), progress=document.querySelector('#progress'); let left=180, timer=null, running=false;
+    function paint(){const m=String(Math.floor(left/60)).padStart(2,'0'),s=String(left%60).padStart(2,'0');clock.textContent=`${m}:${s}`;progress.style.width=`${(1-left/180)*100}%`}
+    function toggle(){running=!running;btn.textContent=running?'暂停':'开始计时';if(running){timer=setInterval(()=>{if(left<=0){clearInterval(timer);running=false;btn.textContent='重新开始';return}left--;paint()},1000)}else clearInterval(timer)}
+    btn.onclick=toggle;document.querySelector('#fullBtn').onclick=()=>document.documentElement.requestFullscreen?.();document.addEventListener('keydown',e=>{if(e.code==='Space'){e.preventDefault();toggle()}if(e.key.toLowerCase()==='f')document.documentElement.requestFullscreen?.()});paint();
+  </script>
+</body>
+</html>

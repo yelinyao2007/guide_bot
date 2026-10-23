@@ -33,8 +33,34 @@ bash scripts/start_all_vm.sh --with-sim --viewer   # 再加虚拟机桌面 3D �
 
 ## 配置
 
+### WSL 真机找空位面板
+
+主看板内的「真机找空位」显示电脑端识别画面、椅子状态，并可点击「找空位并播报」。
+浏览器通过 guide_bot 同源 API 访问，无需单独打开识别页面。
+
+当前电脑已部署的识别进程：
+
+```bash
+~/vbot-cup/.venv/bin/python ~/vbot-cup/seats.py
+```
+
+保持该进程运行，再启动 guide_bot（项目根目录执行）：
+
+```bash
+ROBOT_BACKEND=vbot python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000
+```
+
+前端先执行 `npm ci && npm run build`（目录 `frontend/`）。浏览器打开
+`http://localhost:8000`。识别进程地址默认 `http://127.0.0.1:8766`，
+可通过后端环境变量 `SEAT_DETECTOR_URL` 指定其他伴随电脑地址。
+接口：`GET /api/seats/status`、`GET /api/seats/frame`、`POST /api/seats/find`。
+空位检测提供疑似空椅子与画面方位，座面需现场确认。
+
 - 真机/Dify 配置在看板「真机连接配置」面板，落盘 `vbot_config.json`
   （**含 API Key，已 gitignore**；样例见 `vbot_config.example.json`）
+- 建图：在配置页填写地图名并保存，发送「跟我开始记录场地」，牵引机器狗走完场地，再发送「保存地图」。
+  真机通过 `/slam/set_slam_mode` 的 `mode=2 + map_name` 保存到狗端 `/app_param/map/{地图名}`。
+  之前看到的摄像头画面不能直接恢复地图；下次使用保存的地图时需要设备侧以 `mode=3` 加载并请求重定位。
 - Dify 栈在 VM `~/dify`（docker compose，nginx :80）；workflow 提示词与数据格式契约见
   《大头狗Dify语音调度接入方案.md》（ovo 仓 ros2/ 目录）
 - 前端构建：VM 无 node，需在外部机器 `npm install && npm run build` 后把

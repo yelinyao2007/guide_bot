@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react'
 import { api } from './api'
 import type { Event, RobotStatus, Task } from './types'
 import './style.css'
+import { SeatPanel } from './SeatPanel'
 
 const labels: Record<string, string> = { queued: '排队中', running: '执行中', succeeded: '已完成', failed: '失败', cancelled: '已取消', timed_out: '超时', awaiting_confirmation: '待确认' }
 const time = (value: string) => new Date(value).toLocaleTimeString()
@@ -50,7 +51,8 @@ function VbotPanel() {
         <span className="cfg-btns"><button onClick={difyTestRun} disabled={!!busy}>{busy === 'dify' ? '测试中…' : '测试 Dify'}</button></span>
       </div>
       {difyTest && <p className="notice">{difyTest.ok ? `✅ ${difyTest.elapsed_ms}ms ·「${difyTest.sample}」→ 意图 ${difyTest.intent?.intent}（置信度 ${difyTest.intent?.confidence}）` : `❌ ${difyTest.error}`}</p>}
-      <p className="notice">自检只读不碰控制；免密一次性：<code>ssh-copy-id {cfg.ssh_user}@{cfg.dog_ip}</code></p>
+       <p className="notice">自检只读不碰控制；免密一次性：<code>ssh-copy-id {cfg.ssh_user}@{cfg.dog_ip}</code></p>
+       <p className="notice">建图流程：填写地图名并保存配置 → 发送「跟我开始记录场地」 → 牵引机器狗走完场地 → 发送「保存地图」。地图保存到狗端 /app_param/map/{cfg.map_name || '地图名'}。</p>
     </>}
   </aside>
 }
@@ -135,12 +137,13 @@ export function App() {
     <p role="status">事件连接：{connected ? '已连接' : '重连中'}{reply && ` · ${reply}`}</p>
     {tab === 'main' && <>
     <section className="grid">
-      <aside className="panel interaction"><h2>交互指令</h2><form onSubmit={(e) => { e.preventDefault(); send() }}><input value={text} onChange={(e) => setText(e.target.value)} placeholder="例如：检查链接状态" aria-label="指令" /><button>发送</button></form><div className="shortcuts">{['大头大头', '跟着我', '握手', '跟我开始记录场地', '检查链接状态'].map((item) => <button key={item} onClick={() => send(item)}>{item}</button>)}</div></aside>
+       <aside className="panel interaction"><h2>交互指令</h2><form onSubmit={(e) => { e.preventDefault(); send() }}><input value={text} onChange={(e) => setText(e.target.value)} placeholder="例如：检查链接状态" aria-label="指令" /><button>发送</button></form><div className="shortcuts">{['大头大头', '跟着我', '握手', '跟我开始记录场地', '检查链接状态', '土豆丝生日快乐'].map((item) => <button key={item} onClick={() => send(item)}>{item}</button>)}</div></aside>
       <section className="panel robot"><h2>机器人状态</h2><div className={`orb ${status?.stopped ? 'stopped' : 'active'}`}><div className="dog">🐕</div></div><strong>{status?.stopped ? '已停止' : '执行中'}</strong><p>{status?.model_label || '连接中…'}</p><dl><div><dt>场景</dt><dd>{status?.scene || '—'}</dd></div><div><dt>位置</dt><dd>{status?.position?.map((n) => n.toFixed(2)).join(', ') || '—'}</dd></div><div><dt>步态</dt><dd>{status?.locomotion ? '可用' : '尚不支持行走'}</dd></div></dl></section>
       <aside className="panel tasks"><h2>任务队列</h2>{tasks.length === 0 && <p className="muted">暂无任务</p>}{(() => { const ordered = tasks.slice().reverse(); const pages = Math.max(1, Math.ceil(ordered.length / 5)); const cur = Math.min(page, pages - 1); return <><div className="pager"><button aria-label="上一页" onClick={() => setPage(Math.max(0, cur - 1))}>‹ 上一页</button><span>第 {cur + 1}/{pages} 页</span><button aria-label="下一页" onClick={() => setPage(Math.min(pages - 1, cur + 1))}>下一页 ›</button></div>{ordered.slice(cur * 5, cur * 5 + 5).map((task) => <article className="task" key={task.id}><div><b>{task.intent.destination || task.intent.intent}</b><small>{time(task.updated_at)}</small></div><span className={`status ${task.status}`}>{labels[task.status] || task.status}</span>{task.status === 'awaiting_confirmation' && <button className="confirm" onClick={() => run(() => api.confirm(task.id))}>确认联系家人</button>}{['queued', 'running'].includes(task.status) && <button className="cancel" onClick={() => run(() => api.cancel(task.id))}>取消</button>}{task.result?.delivery_status === 'simulated' && <small className="receipt">模拟通知已记录，不会实际发送</small>}{task.error_code && <small className="failure">{task.error_code}</small>}{(task.result as { checks?: VbotCheck[]; passed?: number; total?: number } | null)?.checks && <small className="receipt" title={((task.result as { checks?: VbotCheck[] }).checks || []).map((c) => `${c.ok ? '✅' : '❌'} ${c.name}：${c.detail}`).join('\n')}>自检 {(task.result as { passed?: number }).passed}/{(task.result as { total?: number }).total} 通过（悬停看明细）</small>}</article>)}</>})()}</aside>
+      <SeatPanel />
       <SimPanel />
     </section>
-    <section className="bottom"><button className="stop" onClick={() => run(api.stop)}>紧急停止</button><button onClick={() => send('检查链接状态')}>检查链接状态</button><button onClick={() => run(() => api.recover(undefined))}>恢复模拟</button>{status?.backend === 'mock' && <button onClick={() => run(api.reset)}>重置演示</button>}<div className="timeline"><h2>事件时间线</h2>{events.filter((event) => event.type !== 'robot.state').slice(-8).reverse().map((event) => <div className="event" key={event.seq}><span>#{event.seq}</span><b>{event.type}</b>{typeof event.payload.code === 'string' && <span>{event.payload.code}</span>}<time>{time(event.timestamp)}</time></div>)}</div></section>
+    <section className="bottom"><button className="stop" onClick={() => run(api.stop)}>紧急停止</button><button onClick={() => send('检查链接状态')}>检查链接状态</button><button onClick={() => run(() => api.recover(undefined))}>恢复机器人</button>{status?.backend === 'mock' && <button onClick={() => run(api.reset)}>重置演示</button>}<div className="timeline"><h2>事件时间线</h2>{events.filter((event) => event.type !== 'robot.state').slice(-8).reverse().map((event) => <div className="event" key={event.seq}><span>#{event.seq}</span><b>{event.type}</b>{typeof event.payload.code === 'string' && <span>{event.payload.code}</span>}<time>{time(event.timestamp)}</time></div>)}</div></section>
     </>}
     {tab === 'config' && <section className="grid"><VbotPanel /></section>}
   </main>

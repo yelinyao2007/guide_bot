@@ -10,7 +10,7 @@ def now():
 
 class Intent(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    intent: Literal["request_help", "move_to", "accompany", "stop", "status", "wake", "follow_me", "shake_hands", "start_mapping", "check_link", "find_seat", "nearby_fun", "record_field_save", "passthrough", "unknown"]
+    intent: Literal["request_help", "move_to", "accompany", "stop", "status", "wake", "follow_me", "shake_hands", "start_mapping", "record_field_save", "check_link", "birthday_song", "find_seat", "nearby_fun", "passthrough", "unknown"]
     destination: Literal["living_room", "bedroom", "entrance"] | None = None
     confidence: float = Field(default=1, ge=0, le=1)
     requires_confirmation: bool = False

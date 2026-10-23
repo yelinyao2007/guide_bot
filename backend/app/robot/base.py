@@ -11,7 +11,7 @@ class RobotError(RuntimeError):
 
 class SafeRobotAction(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    kind: Literal["move_to_known_zone", "accompany", "stop", "wake_reply", "shake_hands", "start_mapping"]
+    kind: Literal["move_to_known_zone", "accompany", "stop", "wake_reply", "shake_hands", "start_mapping", "save_mapping", "birthday_song"]
     destination: Literal["living_room", "bedroom", "entrance"] | None = None
 
 

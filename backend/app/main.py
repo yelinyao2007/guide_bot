@@ -12,6 +12,7 @@ from .robot.base import RobotError
 from .robot.mujoco_adapter import DEFAULT_MODEL, MujocoRobotAdapter
 from .service import Service
 from .store import Store
+from .seats import router as seats_router
 
 
 class Command(BaseModel):
@@ -52,6 +53,7 @@ def create_app(robot=None, database_url=None, timeout=None, resolver=None):
             await service.close()
 
     app = FastAPI(title="最后十米守护者", lifespan=lifespan)
+    app.include_router(seats_router)
 
     @app.exception_handler(RobotError)
     async def robot_error(request, exc):

@@ -34,6 +34,10 @@ def test_intents_and_unknown_destinations():
     assert resolve("去医院").intent == "unknown"
     assert resolve("去客厅再去医院").intent == "unknown"
     assert resolve("帮我联系家人").requires_confirmation
+    birthday = resolve("土豆丝生日快乐")
+    assert birthday.intent == "birthday_song"
+    assert "土豆丝" in birthday.reply
+    assert resolve("保存地图").intent == "record_field_save"
 
 
 def test_help_confirmation_once(client):

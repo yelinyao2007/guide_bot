@@ -8,6 +8,8 @@ def is_stop(text):
 
 def resolve(text):
     text = text.strip()
+    if text == "土豆丝生日快乐":
+        return Intent(intent="birthday_song", reply="祝土豆丝生日快乐，然后唱生日快乐歌。")
     if text in ("小守，我有点不舒服，帮我叫一下家人", "帮我联系家人", "求助"):
         return Intent(intent="request_help", requires_confirmation=True, reply="请确认是否记录一条模拟求助通知，不会实际发送。")
     if text in ("你现在在哪儿", "状态", "status"):
@@ -20,6 +22,8 @@ def resolve(text):
         return Intent(intent="shake_hands", reply="握手！")
     if text in ("跟我开始记录场地", "开始记录场地", "建图"):
         return Intent(intent="start_mapping", reply="开始记录场地，请带我走一圈。")
+    if text in ("保存地图", "完成建图", "结束建图", "保存这张地图"):
+        return Intent(intent="record_field_save", reply="正在保存刚才记录的地图。")
     if text in ("检查链接状态", "检查连接状态", "链路自检"):
         return Intent(intent="check_link", reply="正在执行链路自检（只读，不碰控制）。")
     if text in ("陪我去客厅", "在客厅陪我", "陪陪我"):
@@ -36,6 +40,9 @@ async def dify_resolve(text):
     本地规则是保底：Dify 挂了狗不聋（核心指令仍认得）。
     急停（is_stop）永远走本地，不经过这里，不依赖任何远程服务。
     """
+    # This fixed phrase must stay deterministic even when Dify is enabled.
+    if text.strip() == "土豆丝生日快乐":
+        return resolve(text)
     from . import dify_client, vbot_config
     cfg = vbot_config.load()
     if cfg.get("dify_enabled") and cfg.get("dify_api_key"):
